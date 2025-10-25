@@ -7,6 +7,7 @@ import { getAIResponse } from '@/app/actions';
 import type { Message } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { AppointmentDisplay } from './appointment-display';
+import { CalendarDisplay } from './calendar-display';
 
 export function ChatLayout() {
   const [messages, setMessages] = useState<Message[]>([
@@ -46,6 +47,9 @@ export function ChatLayout() {
       }
       if (assistantMessage.context?.type === 'appointment_confirmed') {
         assistantMessage.component = <AppointmentDisplay details={assistantMessage.context.details} confirmed={true} />;
+      }
+      if (assistantMessage.context?.type === 'calendar' && 'slots' in assistantMessage.context) {
+        assistantMessage.component = <CalendarDisplay availableSlots={assistantMessage.context.slots as string[]} />;
       }
 
       setMessages(prev => [...prev, assistantMessage]);

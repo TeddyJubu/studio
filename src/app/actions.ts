@@ -2,6 +2,7 @@
 
 import { parseAppointmentPreferences } from "@/ai/flows/intelligent-appointment-parsing";
 import { summarizeCustomerInquiry } from "@/ai/flows/summarize-customer-inquiry";
+import { getAvailableSlots } from "@/ai/flows/get-available-slots";
 import type { Message, AppointmentDetails } from "@/lib/types";
 
 // In a real app, this would integrate with a booking service like Cal.com
@@ -40,6 +41,21 @@ export async function getAIResponse(messages: Message[]): Promise<Omit<Message, 
             content: "My apologies. Let's try again. Please provide the correct details for your appointment."
         }
     }
+    
+    // Check if user is asking for available slots
+    if (userMessage.content.toLowerCase().includes('available slots')) {
+      try {
+        const { slots } = await getAvailableSlots({});
+        return {
+          role: 'assistant',
+          content: 'Here are the available slots. Please select a date.',
+          context: { type: 'calendar', slots },
+        };
+      } catch (e) {
+        console.error('Error getting available slots:', e);
+        // Fallthrough to generic response
+      }
+    }
 
     // Try to parse for an appointment
     try {
@@ -62,7 +78,7 @@ export async function getAIResponse(messages: Message[]): Promise<Omit<Message, 
         if (inquirySummary.summary) {
             return {
                 role: 'assistant',
-                content: `Thanks for your message regarding: "${inquirySummary.summary}". While I am an appointment booking specialist, I've noted your query. How may I help you book an appointment today?`
+                content: `Thanks for your message regarding: "${inquirySummary.summary}". How can I help you today?`
             }
         }
     } catch (e) {
@@ -71,6 +87,6 @@ export async function getAIResponse(messages: Message[]): Promise<Omit<Message, 
 
     return {
         role: 'assistant',
-        content: `I'm sorry, I didn't quite understand. I can help book appointments. Please state the purpose, date, and time you'd like to book.`
+        content: `I'm sorry, I didn't quite understand. As a customer support assistant, I can help with your inquiries or book an appointment.`
     }
 }

@@ -31,7 +31,7 @@ const prompt = ai.definePrompt({
   name: 'summarizeCustomerInquiryPrompt',
   input: {schema: SummarizeCustomerInquiryInputSchema},
   output: {schema: SummarizeCustomerInquiryOutputSchema},
-  prompt: `Summarize the following customer inquiry in a concise manner:\n\n{{inquiry}}`,
+  prompt: `You are a customer support agent. Summarize the following customer inquiry in a concise manner:\n\n{{inquiry}}`,
 });
 
 const summarizeCustomerInquiryFlow = ai.defineFlow(

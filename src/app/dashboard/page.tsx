@@ -8,62 +8,10 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { Palette, BotMessageSquare, Save, ArrowLeft, Bot, User, Send, Check } from 'lucide-react';
+import { Palette, BotMessageSquare, Save, ArrowLeft, Bot, User, Send } from 'lucide-react';
 import Link from 'next/link';
-import { cn, hslToHex, hexToHsl } from '@/lib/utils';
+import { cn, hexToHsl } from '@/lib/utils';
 import { ChatAvatar } from '@/components/chat/chat-avatar';
-
-const primaryColors = [
-  { name: 'Teal', value: '#008080' },
-  { name: 'Blue', value: '#3b82f6' },
-  { name: 'Violet', value: '#8b5cf6' },
-  { name: 'Rose', value: '#f43f5e' },
-  { name: 'Orange', value: '#f97316' },
-];
-
-const backgroundColors = [
-  { name: 'White', value: '#ffffff' },
-  { name: 'Light Gray', value: '#f8fafc' },
-  { name: 'Slate', value: '#64748b' },
-  { name: 'Dark', value: '#1e293b' },
-];
-
-interface ColorSwatchProps {
-  colors: { name: string; value: string }[];
-  selectedValue: string;
-  onSelect: (value: string) => void;
-}
-
-function ColorSwatches({ colors, selectedValue, onSelect }: ColorSwatchProps) {
-  return (
-    <div className="flex flex-wrap gap-2">
-      {colors.map(color => (
-        <button
-          key={color.name}
-          type="button"
-          title={color.name}
-          onClick={() => onSelect(color.value)}
-          className={cn(
-            'flex h-8 w-8 items-center justify-center rounded-full border-2 transition-all',
-            selectedValue === color.value ? 'border-ring' : 'border-transparent'
-          )}
-          style={{ backgroundColor: color.value }}
-        >
-          {selectedValue === color.value && (
-            <Check
-              className="h-5 w-5"
-              style={{
-                color: ['#ffffff', '#f8fafc'].includes(color.value)
-                  ? '#000000'
-                  : '#ffffff',
-              }}
-            />
-          )}
-        </button>
-      ))}
-    </div>
-  );
-}
 
 
 export default function DashboardPage() {
@@ -76,15 +24,18 @@ export default function DashboardPage() {
   );
   const [primaryColorHex, setPrimaryColorHex] = useState('#008080');
   const [backgroundColorHex, setBackgroundColorHex] = useState('#ffffff');
+  const [textColorHex, setTextColorHex] = useState('#1e293b');
   const [font, setFont] = useState('Inter');
 
   const primaryColorHsl = useMemo(() => hexToHsl(primaryColorHex), [primaryColorHex]);
   const backgroundColorHsl = useMemo(() => hexToHsl(backgroundColorHex), [backgroundColorHex]);
+  const textColorHsl = useMemo(() => hexToHsl(textColorHex), [textColorHex]);
 
   // Live-updating styles for the preview
   const previewStyle = {
     '--primary': primaryColorHsl,
     '--background': backgroundColorHsl,
+    '--foreground': textColorHsl,
     fontFamily: font,
   } as React.CSSProperties;
 
@@ -93,6 +44,7 @@ export default function DashboardPage() {
     const root = document.documentElement;
     root.style.setProperty('--primary', primaryColorHsl);
     root.style.setProperty('--background', backgroundColorHsl);
+    root.style.setProperty('--foreground', textColorHsl);
 
     // In a real app, you would also save font changes.
     document.body.style.fontFamily = font;
@@ -138,21 +90,23 @@ export default function DashboardPage() {
                 <Palette className="h-5 w-5" /> Appearance
               </CardTitle>
               <CardDescription>
-                Customize the look and feel of your chat interface. Click a swatch or enter a custom Hex color code.
+                Customize the look and feel of your chat interface. Enter a custom Hex color code.
               </CardDescription>
             </CardHeader>
-            <CardContent className="grid gap-6 sm:grid-cols-2">
-              <div className="space-y-4">
+            <CardContent className="grid gap-6 sm:grid-cols-3">
+              <div className="space-y-2">
                 <Label>Primary Color</Label>
-                <ColorSwatches colors={primaryColors} selectedValue={primaryColorHex} onSelect={setPrimaryColorHex} />
                 <Input value={primaryColorHex} onChange={(e) => setPrimaryColorHex(e.target.value)} placeholder="#008080" />
               </div>
-              <div className="space-y-4">
+              <div className="space-y-2">
                 <Label>Background Color</Label>
-                <ColorSwatches colors={backgroundColors} selectedValue={backgroundColorHex} onSelect={setBackgroundColorHex} />
                 <Input value={backgroundColorHex} onChange={(e) => setBackgroundColorHex(e.target.value)} placeholder="#ffffff" />
               </div>
-              <div className="space-y-2 sm:col-span-2">
+              <div className="space-y-2">
+                <Label>Text Color</Label>
+                <Input value={textColorHex} onChange={(e) => setTextColorHex(e.target.value)} placeholder="#1e293b" />
+              </div>
+              <div className="space-y-2 sm:col-span-3">
                 <Label htmlFor="font">Font Family</Label>
                 <Select value={font} onValueChange={setFont}>
                   <SelectTrigger id="font">
@@ -200,7 +154,7 @@ export default function DashboardPage() {
              </CardHeader>
              <CardContent>
               <div
-                className="overflow-hidden rounded-lg border bg-card shadow-sm"
+                className="overflow-hidden rounded-lg border bg-card text-card-foreground shadow-sm"
                 style={previewStyle}
               >
                 {/* Preview Header */}
@@ -211,18 +165,18 @@ export default function DashboardPage() {
                     </div>
                     <div>
                       <h2 className="text-lg font-bold" style={{ color: `hsl(${primaryColorHsl})`}}>{chatbotName}</h2>
-                      <p className="text-xs text-muted-foreground">Powered by AI</p>
+                      <p className="text-xs" style={{color: `hsl(${textColorHsl})`, opacity: 0.6}}>Powered by AI</p>
                     </div>
                   </div>
                 </header>
 
                 {/* Preview Chat Area */}
-                <div className="flex h-80 flex-col bg-background p-3" style={{ backgroundColor: `hsl(${backgroundColorHsl})`}}>
+                <div className="flex h-80 flex-col p-3" style={{ backgroundColor: `hsl(${backgroundColorHsl})`}}>
                   <div className="flex-1 space-y-4 overflow-y-auto">
                     {/* Assistant Message */}
                     <div className="flex items-start gap-3">
                       <ChatAvatar role="assistant" />
-                      <div className="max-w-md rounded-lg bg-muted p-2.5 text-sm">
+                      <div className="max-w-md rounded-lg bg-muted p-2.5 text-sm" style={{ color: `hsl(${textColorHsl})`}}>
                         <p>Hello! How can I help you today?</p>
                       </div>
                     </div>
@@ -236,7 +190,7 @@ export default function DashboardPage() {
                   </div>
                   {/* Preview Input */}
                   <div className="relative mt-4 flex w-full items-center">
-                    <Input placeholder="Type your message..." className="pr-10" disabled />
+                    <Input placeholder="Type your message..." className="pr-10" disabled style={{color: `hsl(${textColorHsl})`}} />
                     <Button type="submit" size="icon" className="absolute right-1.5 top-1/2 h-7 w-7 -translate-y-1/2" disabled style={{ backgroundColor: `hsl(${primaryColorHsl})` }}>
                       <Send className="h-4 w-4" />
                     </Button>

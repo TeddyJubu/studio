@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -10,22 +10,22 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { Palette, BotMessageSquare, Save, ArrowLeft, Bot, User, Send, Check } from 'lucide-react';
 import Link from 'next/link';
-import { cn } from '@/lib/utils';
+import { cn, hslToHex, hexToHsl } from '@/lib/utils';
 import { ChatAvatar } from '@/components/chat/chat-avatar';
 
 const primaryColors = [
-  { name: 'Teal', value: '180 100% 25.1%' },
-  { name: 'Blue', value: '221.2 83.2% 53.3%' },
-  { name: 'Violet', value: '262.1 83.3% 57.8%' },
-  { name: 'Rose', value: '346.8 77.2% 49.8%' },
-  { name: 'Orange', value: '24.6 95% 53.1%' },
+  { name: 'Teal', value: '#008080' },
+  { name: 'Blue', value: '#3b82f6' },
+  { name: 'Violet', value: '#8b5cf6' },
+  { name: 'Rose', value: '#f43f5e' },
+  { name: 'Orange', value: '#f97316' },
 ];
 
 const backgroundColors = [
-  { name: 'White', value: '0 0% 100%' },
-  { name: 'Light Gray', value: '210 40% 98%' },
-  { name: 'Slate', value: '215 20.2% 65.1%' },
-  { name: 'Dark', value: '222 47% 11.2%' },
+  { name: 'White', value: '#ffffff' },
+  { name: 'Light Gray', value: '#f8fafc' },
+  { name: 'Slate', value: '#64748b' },
+  { name: 'Dark', value: '#1e293b' },
 ];
 
 interface ColorSwatchProps {
@@ -47,17 +47,15 @@ function ColorSwatches({ colors, selectedValue, onSelect }: ColorSwatchProps) {
             'flex h-8 w-8 items-center justify-center rounded-full border-2 transition-all',
             selectedValue === color.value ? 'border-ring' : 'border-transparent'
           )}
-          style={{ backgroundColor: `hsl(${color.value})` }}
+          style={{ backgroundColor: color.value }}
         >
           {selectedValue === color.value && (
             <Check
               className="h-5 w-5"
               style={{
-                color: `hsl(${
-                  color.value.startsWith('0 0% 100%') || color.value.startsWith('210 40% 98%')
-                    ? '0 0% 0%'
-                    : '0 0% 100%'
-                })`,
+                color: ['#ffffff', '#f8fafc'].includes(color.value)
+                  ? '#000000'
+                  : '#ffffff',
               }}
             />
           )}
@@ -76,22 +74,25 @@ export default function DashboardPage() {
   const [aiInstructions, setAiInstructions] = useState(
     "You are a helpful customer support assistant. You can help users with their inquiries and book appointments."
   );
-  const [primaryColor, setPrimaryColor] = useState('180 100% 25.1%');
-  const [backgroundColor, setBackgroundColor] = useState('0 0% 100%');
+  const [primaryColorHex, setPrimaryColorHex] = useState('#008080');
+  const [backgroundColorHex, setBackgroundColorHex] = useState('#ffffff');
   const [font, setFont] = useState('Inter');
+
+  const primaryColorHsl = useMemo(() => hexToHsl(primaryColorHex), [primaryColorHex]);
+  const backgroundColorHsl = useMemo(() => hexToHsl(backgroundColorHex), [backgroundColorHex]);
 
   // Live-updating styles for the preview
   const previewStyle = {
-    '--primary': primaryColor,
-    '--background': backgroundColor,
+    '--primary': primaryColorHsl,
+    '--background': backgroundColorHsl,
     fontFamily: font,
   } as React.CSSProperties;
 
   const handleSave = () => {
     // This is where you would apply the theme changes to globals.css
     const root = document.documentElement;
-    root.style.setProperty('--primary', primaryColor);
-    root.style.setProperty('--background', backgroundColor);
+    root.style.setProperty('--primary', primaryColorHsl);
+    root.style.setProperty('--background', backgroundColorHsl);
 
     // In a real app, you would also save font changes.
     document.body.style.fontFamily = font;
@@ -137,19 +138,19 @@ export default function DashboardPage() {
                 <Palette className="h-5 w-5" /> Appearance
               </CardTitle>
               <CardDescription>
-                Customize the look and feel of your chat interface. Click a swatch or enter a custom HSL value.
+                Customize the look and feel of your chat interface. Click a swatch or enter a custom Hex color code.
               </CardDescription>
             </CardHeader>
             <CardContent className="grid gap-6 sm:grid-cols-2">
               <div className="space-y-4">
                 <Label>Primary Color</Label>
-                <ColorSwatches colors={primaryColors} selectedValue={primaryColor} onSelect={setPrimaryColor} />
-                <Input value={primaryColor} onChange={(e) => setPrimaryColor(e.target.value)} placeholder="e.g. 221.2 83.2% 53.3%" />
+                <ColorSwatches colors={primaryColors} selectedValue={primaryColorHex} onSelect={setPrimaryColorHex} />
+                <Input value={primaryColorHex} onChange={(e) => setPrimaryColorHex(e.target.value)} placeholder="#008080" />
               </div>
               <div className="space-y-4">
                 <Label>Background Color</Label>
-                <ColorSwatches colors={backgroundColors} selectedValue={backgroundColor} onSelect={setBackgroundColor} />
-                <Input value={backgroundColor} onChange={(e) => setBackgroundColor(e.target.value)} placeholder="e.g. 0 0% 100%" />
+                <ColorSwatches colors={backgroundColors} selectedValue={backgroundColorHex} onSelect={setBackgroundColorHex} />
+                <Input value={backgroundColorHex} onChange={(e) => setBackgroundColorHex(e.target.value)} placeholder="#ffffff" />
               </div>
               <div className="space-y-2 sm:col-span-2">
                 <Label htmlFor="font">Font Family</Label>
@@ -203,20 +204,20 @@ export default function DashboardPage() {
                 style={previewStyle}
               >
                 {/* Preview Header */}
-                <header className="flex items-center justify-between border-b p-3" style={{ backgroundColor: `hsl(${backgroundColor})`}}>
+                <header className="flex items-center justify-between border-b p-3" style={{ backgroundColor: `hsl(${backgroundColorHsl})`}}>
                   <div className="flex items-center gap-3">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-lg" style={{ backgroundColor: `hsla(${primaryColor.split(' ')[0]}, 100%, 50%, 0.1)`, color: `hsl(${primaryColor})`}}>
+                    <div className="flex h-9 w-9 items-center justify-center rounded-lg" style={{ backgroundColor: `hsla(${primaryColorHsl.split(' ')[0]}, 100%, 50%, 0.1)`, color: `hsl(${primaryColorHsl})`}}>
                       <Bot className="h-5 w-5" />
                     </div>
                     <div>
-                      <h2 className="text-lg font-bold" style={{ color: `hsl(${primaryColor})`}}>{chatbotName}</h2>
+                      <h2 className="text-lg font-bold" style={{ color: `hsl(${primaryColorHsl})`}}>{chatbotName}</h2>
                       <p className="text-xs text-muted-foreground">Powered by AI</p>
                     </div>
                   </div>
                 </header>
 
                 {/* Preview Chat Area */}
-                <div className="flex h-80 flex-col bg-background p-3" style={{ backgroundColor: `hsl(${backgroundColor})`}}>
+                <div className="flex h-80 flex-col bg-background p-3" style={{ backgroundColor: `hsl(${backgroundColorHsl})`}}>
                   <div className="flex-1 space-y-4 overflow-y-auto">
                     {/* Assistant Message */}
                     <div className="flex items-start gap-3">
@@ -227,7 +228,7 @@ export default function DashboardPage() {
                     </div>
                     {/* User Message */}
                     <div className="flex items-start justify-end gap-3">
-                      <div className="max-w-md rounded-lg p-2.5 text-sm text-primary-foreground" style={{ backgroundColor: `hsl(${primaryColor})` }}>
+                      <div className="max-w-md rounded-lg p-2.5 text-sm text-primary-foreground" style={{ backgroundColor: `hsl(${primaryColorHsl})` }}>
                         <p>I have a question about my order.</p>
                       </div>
                       <ChatAvatar role="user" />
@@ -236,7 +237,7 @@ export default function DashboardPage() {
                   {/* Preview Input */}
                   <div className="relative mt-4 flex w-full items-center">
                     <Input placeholder="Type your message..." className="pr-10" disabled />
-                    <Button type="submit" size="icon" className="absolute right-1.5 top-1/2 h-7 w-7 -translate-y-1/2" disabled style={{ backgroundColor: `hsl(${primaryColor})` }}>
+                    <Button type="submit" size="icon" className="absolute right-1.5 top-1/2 h-7 w-7 -translate-y-1/2" disabled style={{ backgroundColor: `hsl(${primaryColorHsl})` }}>
                       <Send className="h-4 w-4" />
                     </Button>
                   </div>

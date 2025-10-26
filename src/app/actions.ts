@@ -44,29 +44,45 @@ export async function getAIResponse(messages: Message[]): Promise<Omit<Message, 
     
     // Try to parse for a booking
     try {
-        const parsed = await parseBookingDetails({ userInput: userMessage.content });
+        const currentDetails = await parseBookingDetails({ userInput: userMessage.content });
+        const previousDetails = lastAssistantMessage?.context?.type === 'booking_suggestion' ? lastAssistantMessage.context.details : {};
+        
+        // Merge previous details with current ones
+        const mergedDetails: BookingDetails = {
+            ...previousDetails,
+            ...currentDetails
+        };
+
         // Only trigger suggestion if we have at least one valid detail
-        if (Object.values(parsed).some(detail => detail !== undefined && detail !== null)) {
+        if (Object.values(mergedDetails).some(detail => detail !== undefined && detail !== null)) {
              // If we only have partial info, ask for more.
-            if (!parsed.partySize) {
+            if (!mergedDetails.partySize) {
                  return {
                     role: 'assistant',
                     content: `I can help with that. How many people will be in your party?`,
-                    context: { type: 'booking_suggestion', details: parsed }
+                    context: { type: 'booking_suggestion', details: mergedDetails }
                 }
             }
-             if (!parsed.date && !parsed.time) {
+             if (!mergedDetails.date && !mergedDetails.time) {
                  return {
                     role: 'assistant',
                     content: `Sounds good. What day and time are you looking for?`,
-                    context: { type: 'booking_suggestion', details: parsed }
+                    context: { type: 'booking_suggestion', details: mergedDetails }
                 }
             }
-
+            if (!mergedDetails.time) {
+                 return {
+                    role: 'assistant',
+                    content: `Perfect. And what time would you like to book?`,
+                    context: { type: 'booking_suggestion', details: mergedDetails }
+                }
+            }
+            
+            // If all details are present, confirm with user
             return {
                 role: 'assistant',
                 content: `I can help with that. Please review the booking details below and reply with "yes" or "no" to confirm.`,
-                context: { type: 'booking_suggestion', details: parsed }
+                context: { type: 'booking_suggestion', details: mergedDetails }
             }
         }
     } catch (e) {

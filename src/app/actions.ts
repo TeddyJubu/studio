@@ -2,7 +2,6 @@
 
 import { parseAppointmentPreferences } from "@/ai/flows/intelligent-appointment-parsing";
 import { summarizeCustomerInquiry } from "@/ai/flows/summarize-customer-inquiry";
-import { getAvailableSlots } from "@/ai/flows/get-available-slots";
 import { generateAvatar as generateAvatarFlow } from "@/ai/flows/generate-avatar";
 import type { Message, AppointmentDetails } from "@/lib/types";
 
@@ -43,19 +42,14 @@ export async function getAIResponse(messages: Message[]): Promise<Omit<Message, 
         }
     }
     
-    // Check if user is asking for available slots
-    if (userMessage.content.toLowerCase().includes('available slot')) {
-      try {
-        const { slots } = await getAvailableSlots({});
+    // Check if user is asking to book an appointment
+    const bookKeywords = ['book', 'appointment', 'schedule', 'cal.com', 'calendar'];
+    if (bookKeywords.some(keyword => userMessage.content.toLowerCase().includes(keyword))) {
         return {
-          role: 'assistant',
-          content: 'Here are the available slots. Please select a date.',
-          context: { type: 'calendar', slots },
+            role: 'assistant',
+            content: 'Of course. You can book a time that works for you below.',
+            context: { type: 'calendar_embed' },
         };
-      } catch (e) {
-        console.error('Error getting available slots:', e);
-        // Fallthrough to generic response
-      }
     }
 
     // Try to parse for an appointment

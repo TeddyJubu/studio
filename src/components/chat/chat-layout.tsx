@@ -7,7 +7,7 @@ import { getAIResponse } from '@/app/actions';
 import type { Message } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { AppointmentDisplay } from './appointment-display';
-import { CalendarDisplay } from './calendar-display';
+import { CalComDisplay } from './cal-com-display';
 
 export function ChatLayout() {
   const [messages, setMessages] = useState<Message[]>([
@@ -15,7 +15,7 @@ export function ChatLayout() {
       id: 'init',
       role: 'assistant',
       content:
-        "Hello! I'm MastraMind. How can I assist you today? You can ask me questions or book an appointment, for example: 'Book a haircut for tomorrow at 2pm'.",
+        "Hello! I'm MastraMind. How can I assist you today? You can ask me questions or book an appointment.",
     },
   ]);
   const [isLoading, setIsLoading] = useState(false);
@@ -48,8 +48,8 @@ export function ChatLayout() {
       if (assistantMessage.context?.type === 'appointment_confirmed') {
         assistantMessage.component = <AppointmentDisplay details={assistantMessage.context.details} confirmed={true} />;
       }
-      if (assistantMessage.context?.type === 'calendar' && 'slots' in assistantMessage.context) {
-        assistantMessage.component = <CalendarDisplay availableSlots={assistantMessage.context.slots as string[]} />;
+      if (assistantMessage.context?.type === 'calendar_embed') {
+        assistantMessage.component = <CalComDisplay />;
       }
 
       setMessages(prev => [...prev, assistantMessage]);

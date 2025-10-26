@@ -45,7 +45,7 @@ export async function getAIResponse(messages: Message[]): Promise<Omit<Message, 
     // Try to parse for a booking
     try {
         const currentDetails = await parseBookingDetails({ userInput: userMessage.content });
-        const previousDetails = lastAssistantMessage?.context?.type === 'booking_suggestion' ? lastAssistantMessage.context.details : {};
+        const previousDetails = (lastAssistantMessage?.context?.type === 'booking_suggestion' || lastAssistantMessage?.context?.type === 'booking_confirmed') ? lastAssistantMessage.context.details : {};
         
         // Merge previous details with current ones
         const mergedDetails: BookingDetails = {
@@ -54,7 +54,7 @@ export async function getAIResponse(messages: Message[]): Promise<Omit<Message, 
         };
 
         // Only trigger suggestion if we have at least one valid detail
-        if (Object.values(mergedDetails).some(detail => detail !== undefined && detail !== null)) {
+        if (Object.values(currentDetails).some(detail => detail !== undefined && detail !== null)) {
              // If we only have partial info, ask for more.
             if (!mergedDetails.partySize) {
                  return {
@@ -90,7 +90,17 @@ export async function getAIResponse(messages: Message[]): Promise<Omit<Message, 
         // Fallthrough to generic response
     }
     
-    // Fallback to a generic summarization response if booking fails
+    // Simple greeting check
+    const isGreeting = /^(hi|hello|hey|yo)\b/i.test(userMessage.content);
+    if (isGreeting) {
+        return {
+            role: 'assistant',
+            content: "Hello! As a restaurant booking agent, I can help you make a reservation. How many people are in your party and for what date and time?"
+        }
+    }
+
+
+    // Fallback to a summarization response if booking parsing fails and it's not a greeting
     try {
         const inquirySummary = await summarizeCustomerInquiry({ inquiry: userMessage.content });
         if (inquirySummary.summary) {

@@ -52,7 +52,7 @@ export async function getAIResponse(messages: Message[]): Promise<Omit<Message, 
             ...previousDetails,
             ...currentDetails
         };
-
+        
         // Only trigger suggestion if we have at least one valid detail
         if (Object.values(currentDetails).some(detail => detail !== undefined && detail !== null)) {
              // If we only have partial info, ask for more.
@@ -66,10 +66,27 @@ export async function getAIResponse(messages: Message[]): Promise<Omit<Message, 
              if (!mergedDetails.date && !mergedDetails.time) {
                  return {
                     role: 'assistant',
-                    content: `Sounds good. What day and time are you looking for?`,
+                    content: `Sounds good. What day are you looking for?`,
                     context: { type: 'booking_suggestion', details: mergedDetails }
                 }
             }
+
+            if (mergedDetails.date && mergedDetails.partySize && !mergedDetails.time) {
+                if (currentDetails.availableSlots && currentDetails.availableSlots.length > 0) {
+                     return {
+                        role: 'assistant',
+                        content: `We have a few openings on that day. Which time would you like?\n\n${currentDetails.availableSlots.join(', ')}`,
+                        context: { type: 'booking_suggestion', details: mergedDetails }
+                    }
+                } else if (currentDetails.availableSlots) {
+                     return {
+                        role: 'assistant',
+                        content: `I'm sorry, we don't have any openings for ${mergedDetails.partySize} people on that day. Would you like to try a different date?`,
+                        context: { type: 'booking_suggestion', details: { partySize: mergedDetails.partySize } } // Reset date
+                    }
+                }
+            }
+
             if (!mergedDetails.time) {
                  return {
                     role: 'assistant',

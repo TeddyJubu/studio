@@ -10,6 +10,7 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
+import { checkAvailability, type TimeSlot } from '@/lib/reservations';
 
 const ParseBookingDetailsInputSchema = z.object({
   userInput: z.string().describe('The user input containing booking preferences for a restaurant or service.'),
@@ -21,9 +22,27 @@ const ParseBookingDetailsOutputSchema = z.object({
   date: z.string().optional().describe('The desired date of the booking (YYYY-MM-DD).'),
   time: z.string().optional().describe('The desired time of the booking (HH:MM in 24-hour format).'),
   occasion: z.string().optional().describe('Any special occasion for the booking (e.g., "birthday", "anniversary").'),
-  specialRequests: z.string().optional().describe('Any special requests from the user (e.g., "window seat", "quiet table").'),
+  specialRequests: z.string().optional().describe('Any other special requests from the user (e.g., "window seat", "quiet table").'),
+  availableSlots: z.array(z.string()).optional().describe('A list of available time slots for the given date and party size.'),
 });
 export type ParseBookingDetailsOutput = z.infer<typeof ParseBookingDetailsOutputSchema>;
+
+const checkAvailabilityTool = ai.defineTool(
+  {
+    name: 'checkAvailability',
+    description: 'Check for available reservation slots for a given date and party size.',
+    inputSchema: z.object({
+      date: z.string().describe("The desired date in 'YYYY-MM-DD' format."),
+      partySize: z.number().describe('The number of people in the party.'),
+    }),
+    outputSchema: z.array(z.string()).describe('An array of available time slots in HH:MM format.'),
+  },
+  async ({ date, partySize }) => {
+    const slots = checkAvailability(new Date(date), partySize);
+    return slots.map(slot => slot.time);
+  }
+);
+
 
 export async function parseBookingDetails(input: ParseBookingDetailsInput): Promise<ParseBookingDetailsOutput> {
   return parseBookingDetailsFlow(input);
@@ -31,6 +50,7 @@ export async function parseBookingDetails(input: ParseBookingDetailsInput): Prom
 
 const prompt = ai.definePrompt({
   name: 'parseBookingDetailsPrompt',
+  tools: [checkAvailabilityTool],
   input: {schema: ParseBookingDetailsInputSchema},
   output: {schema: ParseBookingDetailsOutputSchema},
   prompt: `You are an expert AI assistant for a restaurant, specializing in parsing booking details from unstructured user input. Your goal is to extract specific pieces of information to create a reservation.
@@ -44,18 +64,19 @@ const prompt = ai.definePrompt({
   - occasion: Any special event mentioned (e.g., "birthday", "anniversary").
   - specialRequests: Any other specific needs (e.g., "window seat", "high chair", "booth").
 
-  **IMPORTANT RULES:**
-  1.  If a piece of information is not explicitly mentioned, leave its corresponding field undefined in the JSON output.
-  2.  Do NOT invent or assume any details. For example, if the user says "tonight" but doesn't give a time, only fill in the date.
-  3.  Pay close attention to relative dates like "tomorrow", "next Friday", "this Sunday".
+  **CRITICAL RULES:**
+  1.  If the user provides a date and party size, you **MUST** use the 'checkAvailability' tool to find open slots. Include the results in the 'availableSlots' field.
+  2.  If a piece of information is not explicitly mentioned, leave its corresponding field undefined in the JSON output.
+  3.  Do NOT invent or assume any details. For example, if the user says "tonight" but doesn't give a time, only fill in the date.
+  4.  Pay close attention to relative dates like "tomorrow", "next Friday", "this Sunday".
 
   User Input:
   "{{userInput}}"
 
   Here are some examples to guide you:
-  - User: "I'd like a table for 2 people tomorrow at 7:30pm." -> AI output: { "partySize": 2, "date": "2024-08-16", "time": "19:30" }
-  - User: "Can I book a reservation for a party of 5 next Friday?" -> AI output: { "partySize": 5, "date": "2024-08-23" }
-  - User: "We need a spot for 4 this Saturday at noon for a birthday. We need a high chair." -> AI output: { "partySize": 4, "date": "2024-08-17", "time": "12:00", "occasion": "birthday", "specialRequests": "high chair needed" }
+  - User: "I'd like a table for 2 people tomorrow at 7:30pm." -> AI output: (after using tool) { "partySize": 2, "date": "2024-08-16", "time": "19:30", "availableSlots": ["18:00", "18:30", "19:00", "19:30", "20:00"] }
+  - User: "Can I book a reservation for a party of 5 next Friday?" -> AI output: (after using tool) { "partySize": 5, "date": "2024-08-23", "availableSlots": ["17:00", "20:30"] }
+  - User: "We need a spot for 4 this Saturday at noon for a birthday. We need a high chair." -> AI output: (after using tool) { "partySize": 4, "date": "2024-08-17", "time": "12:00", "occasion": "birthday", "specialRequests": "high chair needed", "availableSlots": ["11:00", "11:30", "12:00", "12:30"] }
   - User: "A table for three please" -> AI output: { "partySize": 3 }
   - User: "is there any available slot tomorrow?" -> AI output: { "date": "2024-08-16" }
 

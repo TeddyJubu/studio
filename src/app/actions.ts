@@ -44,7 +44,7 @@ export async function getAIResponse(messages: Message[]): Promise<Omit<Message, 
     }
     
     // Check if user is asking for available slots
-    if (userMessage.content.toLowerCase().includes('available slots')) {
+    if (userMessage.content.toLowerCase().includes('available slot')) {
       try {
         const { slots } = await getAvailableSlots({});
         return {

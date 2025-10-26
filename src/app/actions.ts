@@ -19,111 +19,113 @@ export async function getAIResponse(messages: Message[]): Promise<Omit<Message, 
     
     // Check if the user is confirming a previous booking suggestion
     const lastAssistantMessage = messages.slice().reverse().find(m => m.role === 'assistant');
-    if (lastAssistantMessage?.context?.type === 'booking_suggestion' && (userMessage.content.toLowerCase().startsWith('yes') || userMessage.content.toLowerCase() === 'confirm')) {
-        const bookingDetails = lastAssistantMessage.context.details;
-        const bookingResult = await bookAppointment(bookingDetails);
-        
-        if (bookingResult.success) {
-            return {
-                role: 'assistant',
-                content: `Great! Your booking is confirmed. We look forward to seeing you.`,
-                context: { type: 'booking_confirmed', details: bookingDetails }
+    const lastBookingContext = (lastAssistantMessage?.context?.type === 'booking_suggestion' || lastAssistantMessage?.context?.type === 'booking_confirmed') ? lastAssistantMessage.context.details : {};
+    
+    // 1. Handle direct confirmation/denial of a booking
+    if (lastAssistantMessage?.context?.type === 'booking_suggestion' && lastBookingContext.partySize && lastBookingContext.date && lastBookingContext.time) {
+        const lowerCaseContent = userMessage.content.toLowerCase();
+        if (lowerCaseContent.startsWith('yes') || lowerCaseContent === 'confirm') {
+            const bookingResult = await bookAppointment(lastBookingContext);
+            if (bookingResult.success) {
+                return {
+                    role: 'assistant',
+                    content: `Great! Your booking is confirmed. We look forward to seeing you.`,
+                    context: { type: 'booking_confirmed', details: lastBookingContext }
+                }
+            } else {
+                 return {
+                    role: 'assistant',
+                    content: `I'm sorry, I was unable to complete your booking for ${lastBookingContext.partySize} people. Please try again.`
+                }
             }
-        } else {
+        }
+        if (lowerCaseContent.startsWith('no') || lowerCaseContent === 'cancel') {
              return {
                 role: 'assistant',
-                content: `I'm sorry, I was unable to complete your booking for ${bookingDetails.partySize} people. Please try again.`
-            }
-        }
-    } else if (lastAssistantMessage?.context?.type === 'booking_suggestion' && (userMessage.content.toLowerCase().startsWith('no') || userMessage.content.toLowerCase() === 'cancel')) {
-        return {
-            role: 'assistant',
-            content: "My apologies. Let's try again. What would you like to change?"
+                content: "My apologies. Let's start over. How can I help you with your booking?"
+             }
         }
     }
-    
-    // Try to parse for a booking
+
+    // 2. Main booking flow
     try {
-        const currentDetails = await parseBookingDetails({ userInput: userMessage.content });
-        const previousDetails = (lastAssistantMessage?.context?.type === 'booking_suggestion' || lastAssistantMessage?.context?.type === 'booking_confirmed') ? lastAssistantMessage.context.details : {};
+        const parsedDetails = await parseBookingDetails({ userInput: userMessage.content });
         
-        // Merge previous details with current ones
-        const mergedDetails: BookingDetails = {
-            ...previousDetails,
-            ...currentDetails
+        // Merge details from this turn with the ongoing booking context
+        const bookingDetails: BookingDetails = {
+            ...lastBookingContext,
+            ...parsedDetails
         };
         
-        // Only trigger suggestion if we have at least one valid detail
-        if (Object.values(currentDetails).some(detail => detail !== undefined && detail !== null)) {
-             // If we only have partial info, ask for more.
-            if (!mergedDetails.partySize) {
-                 return {
-                    role: 'assistant',
-                    content: `I can help with that. How many people will be in your party?`,
-                    context: { type: 'booking_suggestion', details: mergedDetails }
-                }
-            }
-             if (!mergedDetails.date && !mergedDetails.time) {
-                 return {
-                    role: 'assistant',
-                    content: `Sounds good. What day are you looking for?`,
-                    context: { type: 'booking_suggestion', details: mergedDetails }
-                }
-            }
+        // --- Step-by-step booking logic ---
 
-            if (mergedDetails.date && mergedDetails.partySize && !mergedDetails.time) {
-                if (currentDetails.availableSlots && currentDetails.availableSlots.length > 0) {
-                     return {
-                        role: 'assistant',
-                        content: `We have a few openings on that day. Which time would you like?\n\n${currentDetails.availableSlots.join(', ')}`,
-                        context: { type: 'booking_suggestion', details: mergedDetails }
-                    }
-                } else if (currentDetails.availableSlots) {
-                     return {
-                        role: 'assistant',
-                        content: `I'm sorry, we don't have any openings for ${mergedDetails.partySize} people on that day. Would you like to try a different date?`,
-                        context: { type: 'booking_suggestion', details: { partySize: mergedDetails.partySize } } // Reset date
-                    }
-                }
-            }
-
-            if (!mergedDetails.time) {
-                 return {
+        // Ask for party size if unknown
+        if (!bookingDetails.partySize) {
+            const isGreeting = /^(hi|hello|hey|yo)\b/i.test(userMessage.content);
+            if (isGreeting) {
+                return {
                     role: 'assistant',
-                    content: `Perfect. And what time would you like to book?`,
-                    context: { type: 'booking_suggestion', details: mergedDetails }
-                }
+                    content: "Hello! To help you make a reservation, how many people will be in your party?"
+                };
             }
-            
-            // If all details are present, confirm with user
             return {
                 role: 'assistant',
-                content: `I can help with that. Please review the booking details below and reply with "yes" or "no" to confirm.`,
-                context: { type: 'booking_suggestion', details: mergedDetails }
-            }
+                content: 'For how many people?',
+                context: { type: 'booking_suggestion', details: bookingDetails }
+            };
         }
+        
+        // Ask for date if unknown
+        if (!bookingDetails.date) {
+            return {
+                role: 'assistant',
+                content: `Sounds good. What day are you looking for?`,
+                context: { type: 'booking_suggestion', details: bookingDetails }
+            };
+        }
+
+        // Check availability and ask for time if unknown
+        if (!bookingDetails.time) {
+            if (parsedDetails.availableSlots && parsedDetails.availableSlots.length > 0) {
+                 return {
+                    role: 'assistant',
+                    content: `We have a few openings on that day. Which time would you like?\n\n${parsedDetails.availableSlots.join(', ')}`,
+                    context: { type: 'booking_suggestion', details: bookingDetails }
+                }
+            } else if (parsedDetails.availableSlots) { // This means the tool ran but found 0 slots
+                 return {
+                    role: 'assistant',
+                    content: `I'm sorry, we don't have any openings for ${bookingDetails.partySize} people on that day. Would you like to try a different date?`,
+                    context: { type: 'booking_suggestion', details: { partySize: bookingDetails.partySize } } // Reset date
+                }
+            }
+             // If we have date but no time, and the tool didn't run (e.g. user just said a date)
+            return {
+                role: 'assistant',
+                content: `Perfect. And what time would you like to book?`,
+                context: { type: 'booking_suggestion', details: bookingDetails }
+            };
+        }
+
+        // If all details are present, confirm with user
+        return {
+            role: 'assistant',
+            content: `I can help with that. Please review the booking details below and reply with "yes" or "no" to confirm.`,
+            context: { type: 'booking_suggestion', details: bookingDetails }
+        }
+
     } catch (e) {
-        console.error("Error parsing booking details:", e);
+        console.error("Error in main booking flow:", e);
         // Fallthrough to generic response
     }
     
-    // Simple greeting check
-    const isGreeting = /^(hi|hello|hey|yo)\b/i.test(userMessage.content);
-    if (isGreeting) {
-        return {
-            role: 'assistant',
-            content: "Hello! As a restaurant booking agent, I can help you make a reservation. How many people are in your party and for what date and time?"
-        }
-    }
-
-
-    // Fallback to a summarization response if booking parsing fails and it's not a greeting
+    // 3. Fallback to a summarization response if booking parsing fails
     try {
         const inquirySummary = await summarizeCustomerInquiry({ inquiry: userMessage.content });
         if (inquirySummary.summary) {
             return {
                 role: 'assistant',
-                content: `Thanks for your message regarding: "${inquirySummary.summary}". As a restaurant booking agent, I can help you make a reservation. How many people are in your party and for what date and time?`
+                content: `Thanks for your message regarding: "${inquirySummary.summary}". As a restaurant booking agent, I can help you make a reservation. How can I help you today?`
             }
         }
     } catch (e) {

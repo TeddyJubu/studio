@@ -8,11 +8,11 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { Palette, BotMessageSquare, Save, ArrowLeft, Bot, User, Send } from 'lucide-react';
+import { Palette, BotMessageSquare, Save, ArrowLeft, Bot, User, Send, Upload, Sparkles, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { cn, hexToHsl } from '@/lib/utils';
 import { ChatAvatar } from '@/components/chat/chat-avatar';
-
+import { generateAvatar } from '@/app/actions';
 
 export default function DashboardPage() {
   const { toast } = useToast();
@@ -26,6 +26,9 @@ export default function DashboardPage() {
   const [backgroundColorHex, setBackgroundColorHex] = useState('#ffffff');
   const [textColorHex, setTextColorHex] = useState('#1e293b');
   const [font, setFont] = useState('Inter');
+  const [avatar, setAvatar] = useState<string | null>(null);
+  const [avatarPrompt, setAvatarPrompt] = useState('A friendly, abstract robot');
+  const [isGenerating, setIsGenerating] = useState(false);
 
   const primaryColorHsl = useMemo(() => hexToHsl(primaryColorHex), [primaryColorHex]);
   const backgroundColorHsl = useMemo(() => hexToHsl(backgroundColorHex), [backgroundColorHex]);
@@ -53,6 +56,45 @@ export default function DashboardPage() {
       title: 'Settings Saved',
       description: 'Your chatbot customizations have been saved successfully.',
     });
+  };
+
+  const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setAvatar(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleGenerateAvatar = async () => {
+    if (!avatarPrompt.trim()) {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Please enter a prompt for the avatar.',
+      });
+      return;
+    }
+    setIsGenerating(true);
+    try {
+      const { avatarUrl } = await generateAvatar(avatarPrompt);
+      setAvatar(avatarUrl);
+      toast({
+        title: 'Avatar Generated',
+        description: 'Your new AI-powered avatar is ready!',
+      });
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Generation Failed',
+        description: 'Could not generate an avatar. Please try again.',
+      });
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   return (
@@ -90,10 +132,10 @@ export default function DashboardPage() {
                 <Palette className="h-5 w-5" /> Appearance
               </CardTitle>
               <CardDescription>
-                Customize the look and feel of your chat interface. Enter a custom Hex color code.
+                Customize the look and feel of your chat interface.
               </CardDescription>
             </CardHeader>
-            <CardContent className="grid gap-6 sm:grid-cols-3">
+            <CardContent className="grid gap-6 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label>Primary Color</Label>
                 <div className="relative flex items-center">
@@ -115,17 +157,20 @@ export default function DashboardPage() {
                   <Input value={textColorHex} onChange={(e) => setTextColorHex(e.target.value)} placeholder="#1e293b" className="pl-11" />
                 </div>
               </div>
-              <div className="space-y-2 sm:col-span-3">
+              <div className="space-y-2">
                 <Label htmlFor="font">Font Family</Label>
                 <Select value={font} onValueChange={setFont}>
                   <SelectTrigger id="font">
                     <SelectValue placeholder="Select a font" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Inter, sans-serif">Inter</SelectItem>
+                    <SelectItem value="'Inter', sans-serif">Inter</SelectItem>
                     <SelectItem value="'Roboto', sans-serif">Roboto</SelectItem>
                     <SelectItem value="'Source Code Pro', monospace">Source Code Pro</SelectItem>
                     <SelectItem value="'Lato', sans-serif">Lato</SelectItem>
+                    <SelectItem value="'Montserrat', sans-serif">Montserrat</SelectItem>
+                    <SelectItem value="'Open Sans', sans-serif">Open Sans</SelectItem>
+                    <SelectItem value="'Nunito', sans-serif">Nunito</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -138,7 +183,7 @@ export default function DashboardPage() {
                 <BotMessageSquare className="h-5 w-5" /> Configuration
               </CardTitle>
               <CardDescription>
-                Define the name and core instructions for your AI chatbot.
+                Define the name, instructions, and avatar for your AI chatbot.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -146,6 +191,44 @@ export default function DashboardPage() {
                 <Label htmlFor="chatbot-name">Chatbot Name</Label>
                 <Input id="chatbot-name" value={chatbotName} onChange={(e) => setChatbotName(e.target.value)} placeholder="e.g., SupportBot" />
               </div>
+
+               <div className="space-y-2">
+                <Label>Chatbot Avatar</Label>
+                <div className="flex items-center gap-4">
+                  <ChatAvatar role="assistant" src={avatar} className="h-16 w-16" />
+                  <div className="grid w-full gap-2">
+                     <Button asChild variant="outline">
+                       <label htmlFor="avatar-upload" className="cursor-pointer">
+                         <Upload className="mr-2 h-4 w-4" />
+                         Upload Image
+                         <input id="avatar-upload" type="file" className="sr-only" accept="image/*" onChange={handleAvatarUpload} />
+                       </label>
+                     </Button>
+                     <div className="relative">
+                       <Input 
+                         value={avatarPrompt} 
+                         onChange={e => setAvatarPrompt(e.target.value)} 
+                         placeholder="e.g. A friendly, abstract robot" 
+                         disabled={isGenerating}
+                       />
+                        <Button 
+                          size="sm" 
+                          className="absolute right-1 top-1/2 -translate-y-1/2" 
+                          onClick={handleGenerateAvatar}
+                          disabled={isGenerating}
+                        >
+                          {isGenerating ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Sparkles className="h-4 w-4" />
+                          )}
+                           <span className="sr-only">Generate</span>
+                        </Button>
+                     </div>
+                  </div>
+                </div>
+              </div>
+
               <div className="space-y-2">
                 <Label htmlFor="ai-instructions">AI Instructions (System Prompt)</Label>
                 <Textarea id="ai-instructions" value={aiInstructions} onChange={(e) => setAiInstructions(e.target.value)} placeholder="e.g., You are a friendly assistant..." rows={5} />
@@ -169,9 +252,7 @@ export default function DashboardPage() {
                 {/* Preview Header */}
                 <header className="flex items-center justify-between border-b p-3" style={{ backgroundColor: `hsl(${backgroundColorHsl})`}}>
                   <div className="flex items-center gap-3">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-lg" style={{ backgroundColor: `hsla(${primaryColorHsl.split(' ')[0]}, 100%, 50%, 0.1)`, color: `hsl(${primaryColorHsl})`}}>
-                      <Bot className="h-5 w-5" />
-                    </div>
+                    <ChatAvatar role="assistant" src={avatar} />
                     <div>
                       <h2 className="text-lg font-bold" style={{ color: `hsl(${primaryColorHsl})`}}>{chatbotName}</h2>
                       <p className="text-xs" style={{color: `hsl(${textColorHsl})`, opacity: 0.6}}>Powered by AI</p>
@@ -184,7 +265,7 @@ export default function DashboardPage() {
                   <div className="flex-1 space-y-4 overflow-y-auto">
                     {/* Assistant Message */}
                     <div className="flex items-start gap-3">
-                      <ChatAvatar role="assistant" />
+                      <ChatAvatar role="assistant" src={avatar} />
                       <div className="max-w-md rounded-lg bg-muted p-2.5 text-sm" style={{ color: `hsl(${textColorHsl})`}}>
                         <p>Hello! How can I help you today?</p>
                       </div>
@@ -213,5 +294,3 @@ export default function DashboardPage() {
     </main>
   );
 }
-
-    

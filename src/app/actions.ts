@@ -3,6 +3,7 @@
 import { parseAppointmentPreferences } from "@/ai/flows/intelligent-appointment-parsing";
 import { summarizeCustomerInquiry } from "@/ai/flows/summarize-customer-inquiry";
 import { getAvailableSlots } from "@/ai/flows/get-available-slots";
+import { generateAvatar as generateAvatarFlow } from "@/ai/flows/generate-avatar";
 import type { Message, AppointmentDetails } from "@/lib/types";
 
 // In a real app, this would integrate with a booking service like Cal.com
@@ -89,4 +90,14 @@ export async function getAIResponse(messages: Message[]): Promise<Omit<Message, 
         role: 'assistant',
         content: `I'm sorry, I didn't quite understand. As a customer support assistant, I can help with your inquiries or book an appointment.`
     }
+}
+
+export async function generateAvatar(prompt: string): Promise<{ avatarUrl: string }> {
+  try {
+    const result = await generateAvatarFlow({ prompt });
+    return result;
+  } catch (error) {
+    console.error('Error generating avatar:', error);
+    throw new Error('Failed to generate avatar.');
+  }
 }

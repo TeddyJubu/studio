@@ -96,15 +96,24 @@ export default function DashboardPage() {
             <CardContent className="grid gap-6 sm:grid-cols-3">
               <div className="space-y-2">
                 <Label>Primary Color</Label>
-                <Input value={primaryColorHex} onChange={(e) => setPrimaryColorHex(e.target.value)} placeholder="#008080" />
+                <div className="relative flex items-center">
+                  <Input type="color" value={primaryColorHex} onChange={(e) => setPrimaryColorHex(e.target.value)} className="absolute left-1 h-8 w-8 cursor-pointer appearance-none border-none bg-transparent p-0" />
+                  <Input value={primaryColorHex} onChange={(e) => setPrimaryColorHex(e.target.value)} placeholder="#008080" className="pl-11" />
+                </div>
               </div>
               <div className="space-y-2">
                 <Label>Background Color</Label>
-                <Input value={backgroundColorHex} onChange={(e) => setBackgroundColorHex(e.target.value)} placeholder="#ffffff" />
+                <div className="relative flex items-center">
+                  <Input type="color" value={backgroundColorHex} onChange={(e) => setBackgroundColorHex(e.target.value)} className="absolute left-1 h-8 w-8 cursor-pointer appearance-none border-none bg-transparent p-0" />
+                  <Input value={backgroundColorHex} onChange={(e) => setBackgroundColorHex(e.target.value)} placeholder="#ffffff" className="pl-11" />
+                </div>
               </div>
               <div className="space-y-2">
                 <Label>Text Color</Label>
-                <Input value={textColorHex} onChange={(e) => setTextColorHex(e.target.value)} placeholder="#1e293b" />
+                <div className="relative flex items-center">
+                  <Input type="color" value={textColorHex} onChange={(e) => setTextColorHex(e.target.value)} className="absolute left-1 h-8 w-8 cursor-pointer appearance-none border-none bg-transparent p-0" />
+                  <Input value={textColorHex} onChange={(e) => setTextColorHex(e.target.value)} placeholder="#1e293b" className="pl-11" />
+                </div>
               </div>
               <div className="space-y-2 sm:col-span-3">
                 <Label htmlFor="font">Font Family</Label>
@@ -204,3 +213,5 @@ export default function DashboardPage() {
     </main>
   );
 }
+
+    

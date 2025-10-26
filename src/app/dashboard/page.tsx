@@ -8,10 +8,64 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { Palette, BotMessageSquare, Save, ArrowLeft, Bot, User, Send } from 'lucide-react';
+import { Palette, BotMessageSquare, Save, ArrowLeft, Bot, User, Send, Check } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { ChatAvatar } from '@/components/chat/chat-avatar';
+
+const primaryColors = [
+  { name: 'Teal', value: '180 100% 25.1%' },
+  { name: 'Blue', value: '221.2 83.2% 53.3%' },
+  { name: 'Violet', value: '262.1 83.3% 57.8%' },
+  { name: 'Rose', value: '346.8 77.2% 49.8%' },
+  { name: 'Orange', value: '24.6 95% 53.1%' },
+];
+
+const backgroundColors = [
+  { name: 'White', value: '0 0% 100%' },
+  { name: 'Light Gray', value: '210 40% 98%' },
+  { name: 'Slate', value: '215 20.2% 65.1%' },
+  { name: 'Dark', value: '222 47% 11.2%' },
+];
+
+interface ColorSwatchProps {
+  colors: { name: string; value: string }[];
+  selectedValue: string;
+  onSelect: (value: string) => void;
+}
+
+function ColorSwatches({ colors, selectedValue, onSelect }: ColorSwatchProps) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      {colors.map(color => (
+        <button
+          key={color.name}
+          type="button"
+          title={color.name}
+          onClick={() => onSelect(color.value)}
+          className={cn(
+            'flex h-8 w-8 items-center justify-center rounded-full border-2 transition-all',
+            selectedValue === color.value ? 'border-ring' : 'border-transparent'
+          )}
+          style={{ backgroundColor: `hsl(${color.value})` }}
+        >
+          {selectedValue === color.value && (
+            <Check
+              className="h-5 w-5"
+              style={{
+                color: `hsl(${
+                  color.value.startsWith('0 0% 100%') || color.value.startsWith('210 40% 98%')
+                    ? '0 0% 0%'
+                    : '0 0% 100%'
+                })`,
+              }}
+            />
+          )}
+        </button>
+      ))}
+    </div>
+  );
+}
 
 
 export default function DashboardPage() {
@@ -83,23 +137,19 @@ export default function DashboardPage() {
                 <Palette className="h-5 w-5" /> Appearance
               </CardTitle>
               <CardDescription>
-                Customize the look and feel of your chat interface. Colors are in HSL format.
+                Customize the look and feel of your chat interface. Click a swatch or enter a custom HSL value.
               </CardDescription>
             </CardHeader>
             <CardContent className="grid gap-6 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="primary-color">Primary Color</Label>
-                <div className="flex items-center gap-2">
-                  <div className="h-8 w-8 rounded-md border" style={{ backgroundColor: `hsl(${primaryColor})` }} />
-                  <Input id="primary-color" value={primaryColor} onChange={(e) => setPrimaryColor(e.target.value)} />
-                </div>
+              <div className="space-y-4">
+                <Label>Primary Color</Label>
+                <ColorSwatches colors={primaryColors} selectedValue={primaryColor} onSelect={setPrimaryColor} />
+                <Input value={primaryColor} onChange={(e) => setPrimaryColor(e.target.value)} placeholder="e.g. 221.2 83.2% 53.3%" />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="background-color">Background Color</Label>
-                <div className="flex items-center gap-2">
-                  <div className="h-8 w-8 rounded-md border" style={{ backgroundColor: `hsl(${backgroundColor})` }} />
-                  <Input id="background-color" value={backgroundColor} onChange={(e) => setBackgroundColor(e.target.value)} />
-                </div>
+              <div className="space-y-4">
+                <Label>Background Color</Label>
+                <ColorSwatches colors={backgroundColors} selectedValue={backgroundColor} onSelect={setBackgroundColor} />
+                <Input value={backgroundColor} onChange={(e) => setBackgroundColor(e.target.value)} placeholder="e.g. 0 0% 100%" />
               </div>
               <div className="space-y-2 sm:col-span-2">
                 <Label htmlFor="font">Font Family</Label>

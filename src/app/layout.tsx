@@ -1,6 +1,23 @@
-import type {Metadata} from 'next';
-import './globals.css';
-import { Toaster } from "@/components/ui/toaster"
+import type { Metadata } from "next";
+import "./globals.css";
+import { cn } from "@/lib/utils";
+import { Toaster } from "@/components/ui/toaster";
+import { ThemeProvider } from "@/components/theme-provider";
+import { AppShell } from "@/components/ui/app-shell";
+import { Inter, Montserrat, Lato, Source_Code_Pro } from "next/font/google";
+
+const fontSans = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "700"], variable: "--font-sans", display: "swap" });
+const fontHeadline = Montserrat({ subsets: ["latin"], weight: ["400", "500", "600", "700"], variable: "--font-headline", display: "swap" });
+const fontDisplay = Lato({ subsets: ["latin"], weight: ["400", "700"], variable: "--font-display", display: "swap" });
+const fontCode = Source_Code_Pro({ subsets: ["latin"], weight: ["400", "500"], variable: "--font-code", display: "swap" });
+
+const bodyClassName = cn(
+  "min-h-screen bg-background font-sans antialiased",
+  fontSans.variable,
+  fontHeadline.variable,
+  fontDisplay.variable,
+  fontCode.variable
+);
 
 export const metadata: Metadata = {
   title: 'MastraMind',
@@ -13,15 +30,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Lato:wght@400;700&family=Montserrat:wght@400;500;600;700&family=Nunito:wght@400;500;600;700&family=Open+Sans:wght@400;500;600;700&family=Roboto:wght@400;500;700&family=Source+Code+Pro:wght@400;500&display=swap" rel="stylesheet" />
-      </head>
-      <body className="font-body antialiased">
-        {children}
-        <Toaster />
+    <html lang="en" suppressHydrationWarning>
+      <body className={bodyClassName}>
+        <ThemeProvider>
+          <AppShell className="flex min-h-screen flex-col">
+            {children}
+          </AppShell>
+          <Toaster />
+        </ThemeProvider>
       </body>
     </html>
   );

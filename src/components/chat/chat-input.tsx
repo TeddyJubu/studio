@@ -1,42 +1,54 @@
 "use client";
 
-import { useState, useRef } from 'react';
-import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
-import { Send, CornerDownLeft, Loader2 } from 'lucide-react';
+import {
+  useRef,
+  type ChangeEvent,
+  type FormEvent,
+  type KeyboardEvent,
+} from "react";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Send, Loader2 } from "lucide-react";
 
 interface ChatInputProps {
-  onSendMessage: (content: string) => void;
+  value: string;
+  onChange: (event: ChangeEvent<HTMLTextAreaElement>) => void;
+  onSubmit: (event?: FormEvent<HTMLFormElement>) => void;
   isLoading: boolean;
 }
 
-export function ChatInput({ onSendMessage, isLoading }: ChatInputProps) {
-  const [content, setContent] = useState('');
+export function ChatInput({
+  value,
+  onChange,
+  onSubmit,
+  isLoading,
+}: ChatInputProps) {
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!content.trim() || isLoading) return;
-    onSendMessage(content);
-    setContent('');
-  };
+  const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.key === "Enter" && !event.shiftKey) {
+      if (!value.trim() || isLoading) {
+        return;
+      }
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSubmit(e as any);
+      event.preventDefault();
+      onSubmit();
     }
   };
 
   return (
     <form
-      onSubmit={handleSubmit}
+      onSubmit={(event: FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+        if (!value.trim() || isLoading) return;
+        onSubmit(event);
+      }}
       className="relative flex w-full items-center"
     >
       <Textarea
         ref={inputRef}
-        value={content}
-        onChange={e => setContent(e.target.value)}
+        value={value}
+        onChange={onChange}
         onKeyDown={handleKeyDown}
         placeholder="Type your message here..."
         className="min-h-12 resize-none pr-16"
@@ -48,7 +60,7 @@ export function ChatInput({ onSendMessage, isLoading }: ChatInputProps) {
         type="submit"
         size="icon"
         className="absolute right-2 top-1/2 -translate-y-1/2"
-        disabled={isLoading || !content.trim()}
+        disabled={isLoading || !value.trim()}
         aria-label="Send message"
       >
         {isLoading ? (

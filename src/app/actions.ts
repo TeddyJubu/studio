@@ -1,12 +1,12 @@
 "use server";
 
-import { parseAppointmentPreferences } from "@/ai/flows/intelligent-appointment-parsing";
+import { parseBookingDetails } from "@/ai/flows/parse-booking-details";
 import { summarizeCustomerInquiry } from "@/ai/flows/summarize-customer-inquiry";
 import { generateAvatar as generateAvatarFlow } from "@/ai/flows/generate-avatar";
-import type { Message, AppointmentDetails } from "@/lib/types";
+import type { Message, BookingDetails } from "@/lib/types";
 
-// In a real app, this would integrate with a booking service like Cal.com
-export async function bookAppointment(details: AppointmentDetails): Promise<{ success: boolean }> {
+// In a real app, this would integrate with a booking service or database
+export async function bookAppointment(details: BookingDetails): Promise<{ success: boolean }> {
   console.log("Booking appointment:", details);
   // Simulate network delay
   await new Promise(resolve => setTimeout(resolve, 1500));
@@ -17,63 +17,54 @@ export async function bookAppointment(details: AppointmentDetails): Promise<{ su
 export async function getAIResponse(messages: Message[]): Promise<Omit<Message, 'id' | 'component'>> {
     const userMessage = messages[messages.length - 1];
     
-    // Check if the user is confirming a previous appointment suggestion
+    // Check if the user is confirming a previous booking suggestion
     const lastAssistantMessage = messages.slice().reverse().find(m => m.role === 'assistant');
-    if (lastAssistantMessage?.context?.type === 'appointment_suggestion' && (userMessage.content.toLowerCase().startsWith('yes') || userMessage.content.toLowerCase() === 'confirm')) {
-        const appointmentDetails = lastAssistantMessage.context.details;
-        const bookingResult = await bookAppointment(appointmentDetails);
+    if (lastAssistantMessage?.context?.type === 'booking_suggestion' && (userMessage.content.toLowerCase().startsWith('yes') || userMessage.content.toLowerCase() === 'confirm')) {
+        const bookingDetails = lastAssistantMessage.context.details;
+        const bookingResult = await bookAppointment(bookingDetails);
         
         if (bookingResult.success) {
             return {
                 role: 'assistant',
-                content: `Great! Your appointment for "${appointmentDetails.purpose}" is confirmed.`,
-                context: { type: 'appointment_confirmed', details: appointmentDetails }
+                content: `Great! Your booking is confirmed. We look forward to seeing you.`,
+                context: { type: 'booking_confirmed', details: bookingDetails }
             }
         } else {
              return {
                 role: 'assistant',
-                content: `I'm sorry, I was unable to book the appointment for "${appointmentDetails.purpose}". Please try again.`
+                content: `I'm sorry, I was unable to complete your booking for ${bookingDetails.partySize} people. Please try again.`
             }
         }
-    } else if (lastAssistantMessage?.context?.type === 'appointment_suggestion' && (userMessage.content.toLowerCase().startsWith('no') || userMessage.content.toLowerCase() === 'cancel')) {
+    } else if (lastAssistantMessage?.context?.type === 'booking_suggestion' && (userMessage.content.toLowerCase().startsWith('no') || userMessage.content.toLowerCase() === 'cancel')) {
         return {
             role: 'assistant',
-            content: "My apologies. Let's try again. Please provide the correct details for your appointment."
+            content: "My apologies. Let's try again. What would you like to change?"
         }
     }
     
-    // Check if user is asking to book an appointment
-    const bookKeywords = ['book', 'appointment', 'schedule', 'cal.com', 'calendar'];
-    if (bookKeywords.some(keyword => userMessage.content.toLowerCase().includes(keyword))) {
-        return {
-            role: 'assistant',
-            content: 'Of course. You can book a time that works for you below.',
-            context: { type: 'calendar_embed' },
-        };
-    }
-
-    // Try to parse for an appointment
+    // Try to parse for a booking
     try {
-        const parsed = await parseAppointmentPreferences({ userInput: userMessage.content });
-        if (parsed.date || parsed.time || parsed.purpose) {
+        const parsed = await parseBookingDetails({ userInput: userMessage.content });
+        // Only trigger suggestion if we have at least party size and date/time
+        if (parsed.partySize && (parsed.date || parsed.time)) {
             return {
                 role: 'assistant',
-                content: `I can help with that. Please review the details below and reply with "yes" or "no" to confirm.`,
-                context: { type: 'appointment_suggestion', details: parsed }
+                content: `I can help with that. Please review the booking details below and reply with "yes" or "no" to confirm.`,
+                context: { type: 'booking_suggestion', details: parsed }
             }
         }
     } catch (e) {
-        console.error("Error parsing appointment:", e);
+        console.error("Error parsing booking details:", e);
         // Fallthrough to generic response
     }
     
-    // Fallback to a generic response
+    // Fallback to a generic summarization response
     try {
         const inquirySummary = await summarizeCustomerInquiry({ inquiry: userMessage.content });
         if (inquirySummary.summary) {
             return {
                 role: 'assistant',
-                content: `Thanks for your message regarding: "${inquirySummary.summary}". How can I help you today?`
+                content: `Thanks for your message regarding: "${inquirySummary.summary}". I can help with booking an appointment or answering your questions.`
             }
         }
     } catch (e) {

@@ -6,8 +6,7 @@ import { ChatMessages } from './chat-messages';
 import { getAIResponse } from '@/app/actions';
 import type { Message } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
-import { AppointmentDisplay } from './appointment-display';
-import { CalComDisplay } from './cal-com-display';
+import { BookingDisplay } from './booking-display';
 
 export function ChatLayout() {
   const [messages, setMessages] = useState<Message[]>([
@@ -15,7 +14,7 @@ export function ChatLayout() {
       id: 'init',
       role: 'assistant',
       content:
-        "Hello! I'm MastraMind. How can I assist you today? You can ask me questions or book an appointment.",
+        "Hello! I'm MastraMind, your booking assistant. How can I help you book your appointment today?",
     },
   ]);
   const [isLoading, setIsLoading] = useState(false);
@@ -42,14 +41,11 @@ export function ChatLayout() {
         ...assistantResponse
       };
 
-      if (assistantMessage.context?.type === 'appointment_suggestion') {
-        assistantMessage.component = <AppointmentDisplay details={assistantMessage.context.details} />;
+      if (assistantMessage.context?.type === 'booking_suggestion') {
+        assistantMessage.component = <BookingDisplay details={assistantMessage.context.details} />;
       }
-      if (assistantMessage.context?.type === 'appointment_confirmed') {
-        assistantMessage.component = <AppointmentDisplay details={assistantMessage.context.details} confirmed={true} />;
-      }
-      if (assistantMessage.context?.type === 'calendar_embed') {
-        assistantMessage.component = <CalComDisplay />;
+      if (assistantMessage.context?.type === 'booking_confirmed') {
+        assistantMessage.component = <BookingDisplay details={assistantMessage.context.details} confirmed={true} />;
       }
 
       setMessages(prev => [...prev, assistantMessage]);

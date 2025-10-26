@@ -17,7 +17,7 @@ export default function Home() {
                 MastraMind
               </h1>
               <p className="text-sm text-muted-foreground">
-                AI-powered customer service and appointment booking
+                AI-powered restaurant & service booking
               </p>
             </div>
           </div>

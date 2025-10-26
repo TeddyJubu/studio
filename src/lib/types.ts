@@ -1,7 +1,7 @@
-import type { parseAppointmentPreferences } from "@/ai/flows/intelligent-appointment-parsing";
+import type { parseBookingDetails } from "@/ai/flows/parse-booking-details";
 import type { z } from "zod";
 
-export type AppointmentDetails = z.infer<typeof parseAppointmentPreferences.outputSchema>;
+export type BookingDetails = z.infer<typeof parseBookingDetails.outputSchema>;
 
 export interface Message {
   id: string;
@@ -10,14 +10,11 @@ export interface Message {
   component?: React.ReactNode;
   context?:
     | {
-        type: 'appointment_suggestion';
-        details: AppointmentDetails;
+        type: 'booking_suggestion';
+        details: BookingDetails;
       }
     | {
-        type: 'appointment_confirmed';
-        details: AppointmentDetails;
-      }
-    | {
-        type: 'calendar_embed';
-      }
+        type: 'booking_confirmed';
+        details: BookingDetails;
+      };
 }

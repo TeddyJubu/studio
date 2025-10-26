@@ -33,27 +33,33 @@ const prompt = ai.definePrompt({
   name: 'parseBookingDetailsPrompt',
   input: {schema: ParseBookingDetailsInputSchema},
   output: {schema: ParseBookingDetailsOutputSchema},
-  prompt: `You are an AI assistant designed to parse booking details for a restaurant or service from unstructured user input.
+  prompt: `You are an expert AI assistant for a restaurant, specializing in parsing booking details from unstructured user input. Your goal is to extract specific pieces of information to create a reservation.
 
   Today's date is ${new Date().toISOString().split('T')[0]}.
 
-  Extract the following information from the user input:
-  - partySize: The number of people.
-  - date: The desired date, formatted as YYYY-MM-DD.
-  - time: The desired time, formatted as HH:MM (24-hour clock).
-  - occasion: Any special occasion mentioned.
-  - specialRequests: Any other specific requests.
+  From the user's message, extract the following details:
+  - partySize: The number of people for the reservation.
+  - date: The desired date, which you must format as YYYY-MM-DD.
+  - time: The desired time, which you must format as HH:MM (24-hour clock).
+  - occasion: Any special event mentioned (e.g., "birthday", "anniversary").
+  - specialRequests: Any other specific needs (e.g., "window seat", "high chair", "booth").
 
-  If a piece of information is not present, leave it undefined in the JSON output. Do not make up information.
+  **IMPORTANT RULES:**
+  1.  If a piece of information is not explicitly mentioned, leave its corresponding field undefined in the JSON output.
+  2.  Do NOT invent or assume any details. For example, if the user says "tonight" but doesn't give a time, only fill in the date.
+  3.  Pay close attention to relative dates like "tomorrow", "next Friday", "this Sunday".
 
   User Input:
   "{{userInput}}"
 
-  Examples:
-  - "I'd like a table for 2 people tomorrow at 7:30pm." -> { "partySize": 2, "date": "2024-08-16", "time": "19:30" }
-  - "Can I book a reservation for a party of 5 next Friday?" -> { "partySize": 5, "date": "2024-08-23" }
-  - "We need a spot for 4 this Saturday at noon for a birthday. We need a high chair." -> { "partySize": 4, "date": "2024-08-17", "time": "12:00", "occasion": "birthday", "specialRequests": "high chair needed" }
-  - "A table for three please" -> { "partySize": 3 }
+  Here are some examples to guide you:
+  - User: "I'd like a table for 2 people tomorrow at 7:30pm." -> AI output: { "partySize": 2, "date": "2024-08-16", "time": "19:30" }
+  - User: "Can I book a reservation for a party of 5 next Friday?" -> AI output: { "partySize": 5, "date": "2024-08-23" }
+  - User: "We need a spot for 4 this Saturday at noon for a birthday. We need a high chair." -> AI output: { "partySize": 4, "date": "2024-08-17", "time": "12:00", "occasion": "birthday", "specialRequests": "high chair needed" }
+  - User: "A table for three please" -> AI output: { "partySize": 3 }
+  - User: "is there any available slot tomorrow?" -> AI output: { "date": "2024-08-16" }
+
+  Now, process the new user input based on these rules.
 
   Output:
   `,

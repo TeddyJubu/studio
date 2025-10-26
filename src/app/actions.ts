@@ -45,8 +45,24 @@ export async function getAIResponse(messages: Message[]): Promise<Omit<Message, 
     // Try to parse for a booking
     try {
         const parsed = await parseBookingDetails({ userInput: userMessage.content });
-        // Only trigger suggestion if we have at least party size and date/time
-        if (parsed.partySize && (parsed.date || parsed.time)) {
+        // Only trigger suggestion if we have at least one valid detail
+        if (Object.values(parsed).some(detail => detail !== undefined && detail !== null)) {
+             // If we only have partial info, ask for more.
+            if (!parsed.partySize) {
+                 return {
+                    role: 'assistant',
+                    content: `I can help with that. How many people will be in your party?`,
+                    context: { type: 'booking_suggestion', details: parsed }
+                }
+            }
+             if (!parsed.date && !parsed.time) {
+                 return {
+                    role: 'assistant',
+                    content: `Sounds good. What day and time are you looking for?`,
+                    context: { type: 'booking_suggestion', details: parsed }
+                }
+            }
+
             return {
                 role: 'assistant',
                 content: `I can help with that. Please review the booking details below and reply with "yes" or "no" to confirm.`,
@@ -58,13 +74,13 @@ export async function getAIResponse(messages: Message[]): Promise<Omit<Message, 
         // Fallthrough to generic response
     }
     
-    // Fallback to a generic summarization response
+    // Fallback to a generic summarization response if booking fails
     try {
         const inquirySummary = await summarizeCustomerInquiry({ inquiry: userMessage.content });
         if (inquirySummary.summary) {
             return {
                 role: 'assistant',
-                content: `Thanks for your message regarding: "${inquirySummary.summary}". I can help with booking an appointment or answering your questions.`
+                content: `Thanks for your message regarding: "${inquirySummary.summary}". As a restaurant booking agent, I can help you make a reservation. How many people are in your party and for what date and time?`
             }
         }
     } catch (e) {
@@ -73,7 +89,7 @@ export async function getAIResponse(messages: Message[]): Promise<Omit<Message, 
 
     return {
         role: 'assistant',
-        content: `I'm sorry, I didn't quite understand. As a customer support assistant, I can help with your inquiries or book an appointment.`
+        content: `I'm sorry, I didn't quite understand. As a restaurant booking assistant, I can help you make a reservation.`
     }
 }
 

@@ -9,7 +9,14 @@
     "build": "NODE_ENV=production next build",
     "start": "next start",
     "lint": "next lint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "setup:medium": "tsx scripts/setup-medium-features.ts",
+    "verify": "tsx scripts/verify-setup.ts",
+    "test:menu": "tsx scripts/test-menu-service.ts",
+    "test:sentiment": "tsx scripts/test-sentiment.ts",
+    "test:pricing": "tsx scripts/test-pricing.ts",
+    "test:loyalty": "tsx scripts/test-loyalty.ts",
+    "validate:config": "tsx scripts/validate-config.ts"
   },
   "dependencies": {
     "@calcom/embed-react": "^1.5.0",

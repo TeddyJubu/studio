@@ -61,6 +61,31 @@ function generateConfirmationCode(): string {
   return code;
 }
 
+function removeUndefined<T>(data: T): T {
+  if (Array.isArray(data)) {
+    return data.map((item) => removeUndefined(item)) as unknown as T;
+  }
+
+  if (data && typeof data === "object") {
+    const entries = Object.entries(data).reduce(
+      (acc, [key, value]) => {
+        if (value === undefined) {
+          return acc;
+        }
+
+        acc[key] =
+          value && typeof value === "object" ? removeUndefined(value) : value;
+        return acc;
+      },
+      {} as Record<string, unknown>,
+    );
+
+    return entries as unknown as T;
+  }
+
+  return data;
+}
+
 // Create a new booking
 export async function createBooking(
   bookingDetails: BookingDetails,
@@ -74,7 +99,7 @@ export async function createBooking(
   try {
     const confirmationCode = generateConfirmationCode();
 
-    const bookingData = {
+    const bookingData = removeUndefined({
       ...bookingDetails,
       customerId: customerInfo?.customerId,
       customerName: customerInfo?.name,
@@ -85,7 +110,7 @@ export async function createBooking(
       source: "web" as const,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
-    };
+    });
 
     const docRef = await addDoc(
       collection(db, BOOKINGS_COLLECTION),
@@ -94,11 +119,13 @@ export async function createBooking(
 
     const booking: Booking = {
       id: docRef.id,
-      ...bookingDetails,
-      customerId: customerInfo?.customerId,
-      customerName: customerInfo?.name,
-      customerEmail: customerInfo?.email,
-      customerPhone: customerInfo?.phone,
+      ...removeUndefined({
+        ...bookingDetails,
+        customerId: customerInfo?.customerId,
+        customerName: customerInfo?.name,
+        customerEmail: customerInfo?.email,
+        customerPhone: customerInfo?.phone,
+      }),
       confirmationCode,
       status: "pending",
       source: "web",

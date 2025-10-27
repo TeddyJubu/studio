@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useChat } from "@ai-sdk/react";
 import type { JSONValue, Message as AIMessages } from "@ai-sdk/ui-utils";
 
@@ -322,9 +322,25 @@ export function ChatLayout() {
       });
   }, [aiMessages, appendAssistantMessage, toast, updateBooking]);
 
+  const serializableMessages = useMemo(() => {
+    return renderableMessages.map((message) => {
+      const { component, ...rest } = message;
+      return rest;
+    });
+  }, [renderableMessages]);
+
+  const lastSyncedSignature = useRef<string | null>(null);
+
   useEffect(() => {
-    syncMessagesToStore(renderableMessages);
-  }, [renderableMessages, syncMessagesToStore]);
+    const signature = JSON.stringify(serializableMessages);
+
+    if (signature === lastSyncedSignature.current) {
+      return;
+    }
+
+    lastSyncedSignature.current = signature;
+    syncMessagesToStore(serializableMessages);
+  }, [serializableMessages, syncMessagesToStore]);
 
   const statusMessage = isLoading
     ? "MastraMind is drafting a reply..."

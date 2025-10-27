@@ -1,79 +1,189 @@
 "use client";
 
-import { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Calendar, Clock, Users, AlertCircle, CheckCircle2, X } from 'lucide-react';
-import type { Booking } from '@/services/booking-service';
+import { useEffect, useMemo, useState } from "react";
+import {
+  Calendar,
+  Clock,
+  Users,
+  AlertCircle,
+  CheckCircle2,
+  X,
+} from "lucide-react";
+
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
+import type { Booking } from "@/services/booking-service";
 
 interface ModificationFlowProps {
   booking: Booking;
-  onModify: (updates: { date?: string; time?: string; partySize?: number }) => Promise<void>;
+  onModify: (updates: {
+    date?: string;
+    time?: string;
+    partySize?: number;
+  }) => Promise<void>;
   onCancel: (reason?: string) => Promise<void>;
   onClose: () => void;
 }
 
-export function ModificationFlow({ booking, onModify, onCancel, onClose }: ModificationFlowProps) {
-  const [mode, setMode] = useState<'view' | 'modify' | 'cancel'>('view');
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
+type Mode = "overview" | "edit" | "cancel";
+type Banner = { variant: "success" | "destructive"; message: string } | null;
 
-  // Modification state
-  const [newDate, setNewDate] = useState(booking.date || '');
-  const [newTime, setNewTime] = useState(booking.time || '');
-  const [newPartySize, setNewPartySize] = useState(booking.partySize || 2);
+const STATUS_BADGE: Record<
+  Booking["status"] | "default",
+  { label: string; className: string }
+> = {
+  confirmed: {
+    label: "Confirmed",
+    className: "border-success/40 bg-success/15 text-success",
+  },
+  pending: {
+    label: "Pending Confirmation",
+    className: "border-amber-300/60 bg-amber-50 text-amber-700",
+  },
+  cancelled: {
+    label: "Cancelled",
+    className: "border-destructive/40 bg-destructive/10 text-destructive",
+  },
+  completed: {
+    label: "Completed",
+    className: "border-primary/40 bg-primary/10 text-primary",
+  },
+  seated: {
+    label: "Seated",
+    className: "border-primary/40 bg-primary/10 text-primary",
+  },
+  no_show: {
+    label: "No Show",
+    className: "border-destructive/40 bg-destructive/10 text-destructive",
+  },
+  default: {
+    label: "Reservation",
+    className: "border-border/60 bg-muted/40 text-muted-foreground",
+  },
+};
 
-  // Cancellation state
-  const [cancellationReason, setCancellationReason] = useState('');
-
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr + 'T00:00:00');
-    return date.toLocaleDateString('en-US', {
-      weekday: 'long',
-      month: 'long',
-      day: 'numeric',
-      year: 'numeric'
+function formatDate(value?: string) {
+  if (!value) return "Not set";
+  try {
+    return new Date(`${value}T00:00:00`).toLocaleDateString(undefined, {
+      weekday: "long",
+      month: "long",
+      day: "numeric",
+      year: "numeric",
     });
-  };
+  } catch {
+    return value;
+  }
+}
 
-  const formatTime = (timeStr: string) => {
-    const [hours, minutes] = timeStr.split(':');
-    const hour = parseInt(hours);
-    const ampm = hour >= 12 ? 'PM' : 'AM';
-    const displayHour = hour > 12 ? hour - 12 : hour === 0 ? 12 : hour;
-    return `${displayHour}:${minutes} ${ampm}`;
-  };
+function formatTime(value?: string) {
+  if (!value) return "Not set";
+  const [hourString, minute = "00"] = value.split(":");
+  const hour = Number(hourString);
+  if (Number.isNaN(hour)) return value;
+  const suffix = hour >= 12 ? "PM" : "AM";
+  const safeHour = ((hour + 11) % 12) + 1;
+  return `${safeHour}:${minute.padStart(2, "0")} ${suffix}`;
+}
+
+export function ModificationFlow({
+  booking,
+  onModify,
+  onCancel,
+  onClose,
+}: ModificationFlowProps) {
+  const [mode, setMode] = useState<Mode>("overview");
+  const [isLoading, setIsLoading] = useState(false);
+  const [banner, setBanner] = useState<Banner>(null);
+  const [cancellationReason, setCancellationReason] = useState("");
+
+  const [snapshot, setSnapshot] = useState<Booking>(booking);
+  const [newDate, setNewDate] = useState(booking.date ?? "");
+  const [newTime, setNewTime] = useState(booking.time ?? "");
+  const [newPartySize, setNewPartySize] = useState(booking.partySize ?? 2);
+
+  useEffect(() => {
+    setSnapshot(booking);
+    setNewDate(booking.date ?? "");
+    setNewTime(booking.time ?? "");
+    setNewPartySize(booking.partySize ?? 2);
+  }, [booking]);
+
+  const statusTheme =
+    STATUS_BADGE[snapshot.status ?? "default"] ?? STATUS_BADGE.default;
+
+  const detailRows = useMemo(
+    () => [
+      {
+        icon: Users,
+        label: "Party Size",
+        value: snapshot.partySize ? `${snapshot.partySize} guests` : "Not set",
+      },
+      {
+        icon: Calendar,
+        label: "Date",
+        value: snapshot.date ? formatDate(snapshot.date) : "Not set",
+      },
+      {
+        icon: Clock,
+        label: "Time",
+        value: snapshot.time ? formatTime(snapshot.time) : "Not set",
+      },
+    ],
+    [snapshot.partySize, snapshot.date, snapshot.time],
+  );
 
   const handleModifySubmit = async () => {
     setIsLoading(true);
-    setError(null);
-    setSuccess(null);
+    setBanner(null);
 
     try {
       const updates: { date?: string; time?: string; partySize?: number } = {};
-
-      if (newDate !== booking.date) updates.date = newDate;
-      if (newTime !== booking.time) updates.time = newTime;
-      if (newPartySize !== booking.partySize) updates.partySize = newPartySize;
+      if (newDate && newDate !== snapshot.date) updates.date = newDate;
+      if (newTime && newTime !== snapshot.time) updates.time = newTime;
+      if (newPartySize && newPartySize !== snapshot.partySize) {
+        updates.partySize = newPartySize;
+      }
 
       if (Object.keys(updates).length === 0) {
-        setError('No changes detected');
+        setBanner({
+          variant: "destructive",
+          message: "No changes detected. Adjust a field before submitting.",
+        });
         setIsLoading(false);
         return;
       }
 
       await onModify(updates);
-      setSuccess('Booking updated successfully!');
-      setTimeout(() => {
-        setMode('view');
-        setSuccess(null);
-      }, 2000);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update booking');
+      setSnapshot((prev) => ({
+        ...prev,
+        ...updates,
+      }));
+      setBanner({
+        variant: "success",
+        message: "Booking updated successfully.",
+      });
+      setMode("overview");
+    } catch (error) {
+      setBanner({
+        variant: "destructive",
+        message:
+          error instanceof Error
+            ? error.message
+            : "We couldn't update the booking. Please try again.",
+      });
     } finally {
       setIsLoading(false);
     }
@@ -81,274 +191,333 @@ export function ModificationFlow({ booking, onModify, onCancel, onClose }: Modif
 
   const handleCancelSubmit = async () => {
     setIsLoading(true);
-    setError(null);
+    setBanner(null);
 
     try {
-      await onCancel(cancellationReason || undefined);
-      setSuccess('Booking cancelled successfully');
-      setTimeout(() => {
-        onClose();
-      }, 2000);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to cancel booking');
+      await onCancel(cancellationReason.trim() || undefined);
+      setSnapshot((prev) => ({
+        ...prev,
+        status: "cancelled",
+        cancelledAt: new Date(),
+      }));
+      setBanner({
+        variant: "success",
+        message: "Reservation cancelled. We'll reopen the chat for next steps.",
+      });
+      setTimeout(() => onClose(), 600);
+    } catch (error) {
+      setBanner({
+        variant: "destructive",
+        message:
+          error instanceof Error
+            ? error.message
+            : "We couldn't cancel the booking. Please try again.",
+      });
     } finally {
       setIsLoading(false);
     }
   };
 
-  if (mode === 'view') {
+  const overviewBanner =
+    banner && mode === "overview" ? (
+      <Alert variant={banner.variant === "success" ? "default" : "destructive"}>
+        {banner.variant === "success" ? (
+          <CheckCircle2 className="h-4 w-4" />
+        ) : (
+          <AlertCircle className="h-4 w-4" />
+        )}
+        <AlertDescription>{banner.message}</AlertDescription>
+      </Alert>
+    ) : null;
+
+  if (mode === "edit") {
     return (
-      <Card className="my-2 max-w-md">
-        <CardHeader>
-          <CardTitle className="flex items-center justify-between">
-            <span>Your Reservation</span>
-            <Button variant="ghost" size="icon" onClick={onClose}>
-              <X className="h-4 w-4" />
-            </Button>
-          </CardTitle>
-          <CardDescription>
-            Confirmation: {booking.confirmationCode}
-          </CardDescription>
+      <Card className="my-3 max-w-md overflow-hidden rounded-2xl border border-border/70 bg-card/80 shadow-lg backdrop-blur">
+        <CardHeader className="flex flex-row items-start justify-between gap-3">
+          <div>
+            <CardTitle className="text-lg font-semibold">
+              Adjust Reservation
+            </CardTitle>
+            <CardDescription>
+              Update the details and we'll confirm availability instantly.
+            </CardDescription>
+          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => {
+              setMode("overview");
+              setBanner(null);
+              setNewDate(snapshot.date ?? "");
+              setNewTime(snapshot.time ?? "");
+              setNewPartySize(snapshot.partySize ?? 2);
+            }}
+          >
+            <X className="h-4 w-4" />
+          </Button>
         </CardHeader>
-        <CardContent className="space-y-4">
-          {success && (
+
+        <Separator className="bg-border/70" />
+
+        <CardContent className="space-y-4 pt-4">
+          {banner && banner.variant === "destructive" ? (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{banner.message}</AlertDescription>
+            </Alert>
+          ) : null}
+
+          <form
+            className="space-y-4"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void handleModifySubmit();
+            }}
+          >
+            <div className="grid gap-2">
+              <Label htmlFor="party-size">Party size</Label>
+              <Input
+                id="party-size"
+                type="number"
+                min="1"
+                max="20"
+                value={newPartySize}
+                onChange={(event) =>
+                  setNewPartySize(Number.parseInt(event.target.value, 10) || 1)
+                }
+              />
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="reservation-date">Date</Label>
+              <Input
+                id="reservation-date"
+                type="date"
+                value={newDate}
+                min={new Date().toISOString().split("T")[0]}
+                onChange={(event) => setNewDate(event.target.value)}
+              />
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="reservation-time">Time</Label>
+              <Input
+                id="reservation-time"
+                type="time"
+                value={newTime}
+                onChange={(event) => setNewTime(event.target.value)}
+              />
+            </div>
+
             <Alert>
-              <CheckCircle2 className="h-4 w-4" />
-              <AlertDescription>{success}</AlertDescription>
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                Adjustments depend on availability. We’ll keep your original
+                booking until the new details are confirmed.
+              </AlertDescription>
             </Alert>
-          )}
 
-          <div className="space-y-3">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
-                <Users className="h-5 w-5" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Party Size</p>
-                <p className="font-medium">{booking.partySize} guests</p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
-                <Calendar className="h-5 w-5" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Date</p>
-                <p className="font-medium">{booking.date ? formatDate(booking.date) : 'Not set'}</p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
-                <Clock className="h-5 w-5" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Time</p>
-                <p className="font-medium">{booking.time ? formatTime(booking.time) : 'Not set'}</p>
-              </div>
-            </div>
-          </div>
-
-          {booking.occasion && (
-            <div className="rounded-lg bg-muted p-3">
-              <p className="text-sm text-muted-foreground">Occasion</p>
-              <p className="text-sm">{booking.occasion}</p>
-            </div>
-          )}
-
-          {booking.specialRequests && (
-            <div className="rounded-lg bg-muted p-3">
-              <p className="text-sm text-muted-foreground">Special Requests</p>
-              <p className="text-sm">{booking.specialRequests}</p>
-            </div>
-          )}
-
-          <div className="flex items-center gap-2 rounded-lg bg-muted p-3">
-            <div className={`h-2 w-2 rounded-full ${
-              booking.status === 'confirmed' ? 'bg-green-500' :
-              booking.status === 'pending' ? 'bg-yellow-500' :
-              booking.status === 'cancelled' ? 'bg-red-500' :
-              'bg-gray-500'
-            }`} />
-            <p className="text-sm capitalize">{booking.status}</p>
-          </div>
-
-          <div className="grid grid-cols-2 gap-2 pt-2">
-            <Button
-              variant="outline"
-              onClick={() => setMode('modify')}
-              disabled={booking.status === 'cancelled' || booking.status === 'completed'}
-            >
-              Modify Booking
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => setMode('cancel')}
-              disabled={booking.status === 'cancelled' || booking.status === 'completed'}
-              className="text-destructive hover:text-destructive"
-            >
-              Cancel Booking
-            </Button>
-          </div>
+            <CardFooter className="flex flex-col gap-2 border-t border-border/60 bg-muted/40 p-0 pt-4 sm:flex-row sm:justify-end">
+              <Button
+                variant="outline"
+                type="button"
+                onClick={() => {
+                  setMode("overview");
+                  setBanner(null);
+                  setNewDate(snapshot.date ?? "");
+                  setNewTime(snapshot.time ?? "");
+                  setNewPartySize(snapshot.partySize ?? 2);
+                }}
+              >
+                Keep current booking
+              </Button>
+              <Button type="submit" disabled={isLoading}>
+                {isLoading ? "Updating..." : "Save changes"}
+              </Button>
+            </CardFooter>
+          </form>
         </CardContent>
       </Card>
     );
   }
 
-  if (mode === 'modify') {
+  if (mode === "cancel") {
     return (
-      <Card className="my-2 max-w-md">
-        <CardHeader>
-          <CardTitle className="flex items-center justify-between">
-            <span>Modify Reservation</span>
-            <Button variant="ghost" size="icon" onClick={() => setMode('view')}>
-              <X className="h-4 w-4" />
-            </Button>
-          </CardTitle>
-          <CardDescription>
-            Update your booking details
-          </CardDescription>
+      <Card className="my-3 max-w-md overflow-hidden rounded-2xl border border-border/70 bg-card/80 shadow-lg backdrop-blur">
+        <CardHeader className="flex flex-row items-start justify-between gap-3">
+          <div>
+            <CardTitle className="text-lg font-semibold text-destructive">
+              Cancel reservation
+            </CardTitle>
+            <CardDescription>
+              The table will immediately become available for other guests.
+            </CardDescription>
+          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => {
+              setMode("overview");
+              setBanner(null);
+              setCancellationReason("");
+            }}
+          >
+            <X className="h-4 w-4" />
+          </Button>
         </CardHeader>
-        <CardContent className="space-y-4">
-          {error && (
+
+        <Separator className="bg-border/70" />
+
+        <CardContent className="space-y-4 pt-4">
+          {banner && banner.variant === "destructive" ? (
             <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
-              <AlertDescription>{error}</AlertDescription>
+              <AlertDescription>{banner.message}</AlertDescription>
             </Alert>
-          )}
-
-          <div className="space-y-2">
-            <Label htmlFor="partySize">Party Size</Label>
-            <Input
-              id="partySize"
-              type="number"
-              min="1"
-              max="20"
-              value={newPartySize}
-              onChange={(e) => setNewPartySize(parseInt(e.target.value) || 1)}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="date">Date</Label>
-            <Input
-              id="date"
-              type="date"
-              value={newDate}
-              onChange={(e) => setNewDate(e.target.value)}
-              min={new Date().toISOString().split('T')[0]}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="time">Time</Label>
-            <Input
-              id="time"
-              type="time"
-              value={newTime}
-              onChange={(e) => setNewTime(e.target.value)}
-            />
-          </div>
-
-          <Alert>
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>
-              Changes to your booking are subject to availability. We'll confirm the new details shortly.
-            </AlertDescription>
-          </Alert>
-
-          <div className="flex gap-2 pt-2">
-            <Button
-              onClick={handleModifySubmit}
-              disabled={isLoading}
-              className="flex-1"
-            >
-              {isLoading ? 'Updating...' : 'Confirm Changes'}
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setMode('view');
-                setNewDate(booking.date || '');
-                setNewTime(booking.time || '');
-                setNewPartySize(booking.partySize || 2);
-                setError(null);
-              }}
-              disabled={isLoading}
-            >
-              Cancel
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (mode === 'cancel') {
-    return (
-      <Card className="my-2 max-w-md">
-        <CardHeader>
-          <CardTitle className="flex items-center justify-between">
-            <span>Cancel Reservation</span>
-            <Button variant="ghost" size="icon" onClick={() => setMode('view')}>
-              <X className="h-4 w-4" />
-            </Button>
-          </CardTitle>
-          <CardDescription>
-            Are you sure you want to cancel this booking?
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {error && (
-            <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
+          ) : null}
 
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
-              This action cannot be undone. Your reservation for {booking.partySize} guests on {booking.date ? formatDate(booking.date) : 'the selected date'} at {booking.time ? formatTime(booking.time) : 'the selected time'} will be cancelled.
+              You're about to cancel a table for{" "}
+              {snapshot.partySize
+                ? `${snapshot.partySize} guests`
+                : "your party"}{" "}
+              on{" "}
+              {snapshot.date ? formatDate(snapshot.date) : "the selected date"}{" "}
+              at{" "}
+              {snapshot.time ? formatTime(snapshot.time) : "the selected time"}.
+              This action cannot be undone.
             </AlertDescription>
           </Alert>
 
-          <div className="space-y-2">
-            <Label htmlFor="reason">Reason for cancellation (optional)</Label>
+          <div className="grid gap-2">
+            <Label htmlFor="cancel-reason">
+              Reason for cancellation{" "}
+              <span className="text-muted-foreground">(optional)</span>
+            </Label>
             <Input
-              id="reason"
-              placeholder="e.g., Change of plans, scheduling conflict..."
+              id="cancel-reason"
+              placeholder="Change of plans, duplicate booking, schedule conflict..."
               value={cancellationReason}
-              onChange={(e) => setCancellationReason(e.target.value)}
+              onChange={(event) => setCancellationReason(event.target.value)}
             />
           </div>
-
-          <div className="flex gap-2 pt-2">
-            <Button
-              variant="destructive"
-              onClick={handleCancelSubmit}
-              disabled={isLoading}
-              className="flex-1"
-            >
-              {isLoading ? 'Cancelling...' : 'Yes, Cancel Booking'}
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setMode('view');
-                setCancellationReason('');
-                setError(null);
-              }}
-              disabled={isLoading}
-            >
-              Keep Booking
-            </Button>
-          </div>
         </CardContent>
+
+        <CardFooter className="flex flex-col gap-2 border-t border-border/60 bg-muted/40 p-4 sm:flex-row sm:justify-end">
+          <Button
+            variant="outline"
+            type="button"
+            onClick={() => {
+              setMode("overview");
+              setBanner(null);
+              setCancellationReason("");
+            }}
+            disabled={isLoading}
+          >
+            Keep reservation
+          </Button>
+          <Button
+            variant="destructive"
+            onClick={() => {
+              void handleCancelSubmit();
+            }}
+            disabled={isLoading}
+          >
+            {isLoading ? "Cancelling..." : "Confirm cancellation"}
+          </Button>
+        </CardFooter>
       </Card>
     );
   }
 
-  return null;
+  return (
+    <Card className="my-3 max-w-md overflow-hidden rounded-2xl border border-border/70 bg-card/80 shadow-lg backdrop-blur">
+      <CardHeader className="flex flex-row items-start justify-between gap-3">
+        <div>
+          <CardTitle className="text-lg font-semibold">
+            Reservation overview
+          </CardTitle>
+          <CardDescription>
+            Confirmation • {snapshot.confirmationCode}
+          </CardDescription>
+        </div>
+        <Badge variant="outline" className={statusTheme.className}>
+          {statusTheme.label}
+        </Badge>
+      </CardHeader>
+
+      <Separator className="bg-border/70" />
+
+      <CardContent className="space-y-4 pt-4">
+        {overviewBanner}
+
+        <div className="grid gap-3">
+          {detailRows.map(({ icon: Icon, label, value }) => (
+            <div
+              key={label}
+              className="flex items-center justify-between gap-3 rounded-xl border border-border/60 bg-muted/40 px-3 py-2"
+            >
+              <div className="flex items-center gap-3">
+                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary">
+                  <Icon className="h-4 w-4" />
+                </span>
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    {label}
+                  </p>
+                  <p className="mt-0.5 text-sm font-medium text-foreground">
+                    {value}
+                  </p>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {snapshot.occasion ? (
+          <div className="rounded-xl border border-border/60 bg-muted/40 px-3 py-2 text-sm">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              Occasion
+            </p>
+            <p className="mt-1 text-foreground">{snapshot.occasion}</p>
+          </div>
+        ) : null}
+
+        {snapshot.specialRequests ? (
+          <div className="rounded-xl border border-border/60 bg-muted/40 px-3 py-2 text-sm">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              Special requests
+            </p>
+            <p className="mt-1 text-foreground">{snapshot.specialRequests}</p>
+          </div>
+        ) : null}
+      </CardContent>
+
+      <CardFooter className="flex flex-col gap-2 border-t border-border/60 bg-muted/40 p-4 sm:flex-row sm:justify-end">
+        <Button
+          variant="outline"
+          onClick={() => setMode("edit")}
+          disabled={
+            snapshot.status === "cancelled" || snapshot.status === "completed"
+          }
+        >
+          Modify reservation
+        </Button>
+        <Button
+          variant="destructive"
+          onClick={() => setMode("cancel")}
+          disabled={
+            snapshot.status === "cancelled" || snapshot.status === "completed"
+          }
+        >
+          Cancel reservation
+        </Button>
+        <Button variant="ghost" onClick={onClose}>
+          Close
+        </Button>
+      </CardFooter>
+    </Card>
+  );
 }
